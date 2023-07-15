@@ -143,7 +143,7 @@ pub mod tests {
         assert_eq!(voting_power, 0_u128);
 
         // normal withdraw
-        let msg = ExecuteMsg::Withdraw { amount };
+        let msg = ExecuteMsg::Withdraw { amount: amount };
         app.execute_contract(sender, contract_addr, &msg, &[])
             .unwrap();
 
