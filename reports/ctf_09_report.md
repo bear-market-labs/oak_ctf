@@ -24,6 +24,8 @@ We recommend removing lines ./contract.rs#L180-182 to ensure the user's reward i
 
 ### Proof of concept
 
+exploit shown here: https://github.com/bear-market-labs/oak_ctf/commit/04ae0756e890a40d15d2260fde5d009b5814aeb5#diff-e6dfbb5c41551f6f0f0ad6366eff0f3782b921f3098dd29c16f845367f613278
+
 ```rust
 
 ```

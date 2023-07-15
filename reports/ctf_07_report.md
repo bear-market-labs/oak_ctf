@@ -35,6 +35,8 @@ pub const OWNER: Item<Addr> = Item::new("owner");
 
 ### Proof of concept
 
+exploit shown here: https://github.com/bear-market-labs/oak_ctf/commit/04ae0756e890a40d15d2260fde5d009b5814aeb5#diff-2b3053e3d2b0922f2e5a13d5ec8e7f08b0d0ccdc7b5f93023a0907b7c1676f11
+
 ```rust
 
 ```
