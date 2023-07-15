@@ -31,5 +31,5 @@ We recommend using the cw_storage_plus::SnapshotMap data structure for VOTING_PO
 ### Proof of concept
 
 ```rust
-
+// not confident of this answer, and did not write a POC exploit
 ```
