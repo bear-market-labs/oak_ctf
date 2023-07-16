@@ -12,10 +12,10 @@ The attack flow:
 
 1. Attacker deposits any number of tokens via address A.
 2. Attacker deposits any number of tokens via address B, and then withdraws entire balance.
-  a. after the block, the attacker's user_index is set to global_index=X
+   - after the block, the attacker's user_index is set to global_index=X
 3. Owner distributes rewards and updates global_index to X+Y, with address A ensuring total_stake > 0
 4. Attacker deposits an ideally large number of tokens via address B
-  b. after the deposit, the attacker's user_index is *still* set to X
+   - after the deposit, the attacker's user_index is *still* set to X
 5. Attacker calls ExecuteMsg::Claim via address B, earning rewards from step 3
 
 ### Recommendation
