@@ -13,9 +13,9 @@ The attack flow would be:
 1. Attacker calls ExecuteMsg::Propose
 2. Wait for voting window to pass
 3. Take out a sufficient flash loan of the voting token; the msg payload is
-  a. Call Cw20ExecuteMsg::Transfer to directly send the token into the contract and increase its balance
-  b. Call ExecuteMsg::ResolveProposal, which will pass and give privileges to ExecuteMsg::OwnerAction
-  c. Repay flash loan with ExecuteMsg::OwnerAction (execute another Cw20ExecuteMsg::Transfer to send contract's voting token holdings)
+   - Call Cw20ExecuteMsg::Transfer to directly send the token into the contract and increase its balance
+   - Call ExecuteMsg::ResolveProposal, which will pass and give privileges to ExecuteMsg::OwnerAction
+   - Repay flash loan with ExecuteMsg::OwnerAction (execute another Cw20ExecuteMsg::Transfer to send contract's voting token holdings)
 
 ### Recommendation
 
